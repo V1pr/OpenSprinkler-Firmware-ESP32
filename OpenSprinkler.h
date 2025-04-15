@@ -32,6 +32,7 @@
 #include "images.h"
 #include "mqtt.h"
 #include "RCSwitch.h"
+#include "osinfluxdb.h"
 
 #if defined(ARDUINO) // headers for Arduino
 	#include <Arduino.h>
@@ -49,6 +50,8 @@
 		#include <OpenThingsFramework.h>
 		#include <DNSServer.h>
 		#include <Ticker.h>
+		#include <WiFiClientSecure.h>
+		#include "SSD1306Display.h"
 		#include "espconnect.h"
 		#include "EMailSender.h"
 	#elif defined(ESP32)
@@ -80,7 +83,7 @@
 	#include <sys/stat.h>
 	#include "OpenThingsFramework.h"
 	#include "etherport.h"
-	#include "rpitime.h"
+    #include "rpitime.h"
 	#include "smtp.h"
 #endif // end of headers
 
@@ -136,6 +139,7 @@
 		// AVR specific
 	#endif
 	extern bool useEth;
+	bool detect_i2c(int addr);
 #else
 	// OSPI/Linux specific
 #endif
@@ -245,6 +249,8 @@ struct ConStatus {
 	unsigned char sensor2_active:1;  // sensor2 active bit (when set, sensor2 is activated)
 	unsigned char req_mqtt_restart:1;// request mqtt restart
 	unsigned char pause_state:1;     // pause station runs
+	unsigned char forced_sensor1:1;  // forced sensor1 active (from Analog Sensor API)
+	unsigned char forced_sensor2:1;  // forced sensor2 active (from Analog Sensor API)
 };
 
 /** OTF configuration */
@@ -276,6 +282,7 @@ class OpenSprinkler {
 public:
 
 	// data members
+	static OSInfluxDB influxdb;
 #if defined(USE_SSD1306)
 	static SSD1306Display lcd;  // 128x64 OLED display
 #elif defined(USE_SH1106)
@@ -289,7 +296,6 @@ public:
 #endif
 
 	static OSMqtt mqtt;
-
 	static NVConData nvdata;
 	static ConStatus status;
 	static ConStatus old_status;
@@ -310,8 +316,9 @@ public:
 	static unsigned char attrib_dis[];
 	static unsigned char attrib_spe[];
 	static unsigned char attrib_grp[];
+	static uint16_t attrib_fas[MAX_NUM_STATIONS]; //value*100 flow alert setpoint
+	static uint16_t attrib_favg[MAX_NUM_STATIONS]; //value*100 flow avg values
 	static unsigned char masters[NUM_MASTER_ZONES][NUM_MASTER_OPTS];
-	static time_os_t masters_last_on[NUM_MASTER_ZONES];
 
 	// variables for time keeping
 	static time_os_t sensor1_on_timer;  // time when sensor1 is detected on last time
@@ -360,8 +367,12 @@ public:
 	static void set_station_name(unsigned char sid, char buf[]); // set station name
 	static unsigned char get_station_type(unsigned char sid); // get station type
 	static unsigned char is_sequential_station(unsigned char sid);
-	static unsigned char is_master_station(unsigned char sid);
-	static unsigned char bound_to_master(unsigned char sid, unsigned char mas);
+    uint16_t get_flow_alert_setpoint(unsigned char sid);
+    void set_flow_alert_setpoint(unsigned char sid, uint16_t value);
+    uint16_t get_flow_avg_value(unsigned char sid);
+    void set_flow_avg_value(unsigned char sid, uint16_t value);
+    static unsigned char is_master_station(unsigned char sid);
+    static unsigned char bound_to_master(unsigned char sid, unsigned char mas);
 	static unsigned char get_master_id(unsigned char mas);
 	static int16_t get_on_adj(unsigned char mas);
 	static int16_t get_off_adj(unsigned char mas);
@@ -520,7 +531,7 @@ private:
 	static void latch_close(unsigned char sid);
 	static void latch_setzonepin(unsigned char sid, unsigned char value);
 	static void latch_setallzonepins(unsigned char value);
-	static void latch_disable_alloutputs_v2();
+	static void latch_disable_alloutputs_v2(unsigned char expvalue);
 	static void latch_setzoneoutput_v2(unsigned char sid, unsigned char A, unsigned char K);
 	static void latch_apply_all_station_bits();
 	static unsigned char prev_station_bits[];
