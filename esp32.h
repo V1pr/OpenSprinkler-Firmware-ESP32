@@ -80,7 +80,7 @@
  
   #define PIN_ETHER_CS         255 // ENC28J60 CS (chip select pin) is 16 on OS 3.2.
 
-  #define USE_IOEXP_SR 1 // use Shift-register as station setting - uncomment this to use built-in gpio style, default 0
+  #define USE_IOEXP_SR 0 // use Shift-register as station setting - uncomment this to use built-in gpio style, default 0
   
   // default
   // #define ON_BOARD_GPIN_LIST     {12,13,14,15,16,255,255,255} //  ESP32 on board pins to be used as sections, 255 = pin not defined
