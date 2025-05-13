@@ -627,10 +627,14 @@ void do_loop()
 			dns->start(53, "*", WiFi.softAPIP());
 			os.state = OS_STATE_CONNECTED;
 			connecting_timeout = 0;
+			#if defined(SYS_STATUS_LED_PIN)
 			sys_led_blink_ms = 2000;
+			#endif
 		} else {
 			led_blink_ms = LED_SLOW_BLINK;
+			#if defined(SYS_STATUS_LED_PIN)
 			sys_led_blink_ms = LED_SLOW_BLINK;
+			#endif
 			DEBUG_PRINTLN(F("Setting up WiFi client"));
 			if(os.sopt_load(SOPT_STA_BSSID_CHL).length()>0 && os.wifi_channel<255) {
 				start_network_sta(os.wifi_ssid.c_str(), os.wifi_pass.c_str(), (int32_t)os.wifi_channel, os.wifi_bssid);
@@ -649,7 +653,9 @@ void do_loop()
 
 	case OS_STATE_TRY_CONNECT:
 		led_blink_ms = LED_SLOW_BLINK;
+		#if defined(SYS_STATUS_LED_PIN)
 		sys_led_blink_ms = LED_FAST_BLINK;
+		#endif
 		if(os.sopt_load(SOPT_STA_BSSID_CHL).length()>0 && os.wifi_channel<255) {
 			start_network_sta_with_ap(os.wifi_ssid.c_str(), os.wifi_pass.c_str(), (int32_t)os.wifi_channel, os.wifi_bssid);
 		}
@@ -662,7 +668,9 @@ void do_loop()
 	case OS_STATE_CONNECTING:
 		if(WiFi.status() == WL_CONNECTED) {
 			led_blink_ms = 0;
+			#if defined(SYS_STATUS_LED_PIN)
 			sys_led_blink_ms = LED_SLOW_BLINK;
+			#endif
 			os.set_screen_led(LOW);
 			os.lcd.clear();
 			os.save_wifi_ip();
