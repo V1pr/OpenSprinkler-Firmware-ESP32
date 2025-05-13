@@ -76,6 +76,10 @@
 	#endif
 #endif
 
+#if defined(SYS_STATUS_LED_PIN)
+	static uint16_t sys_led_blink_ms = LED_SLOW_BLINK;
+#endif
+
 void manual_start_program(unsigned char, unsigned char);
 
 // Small variations have been added to the timing values below
@@ -180,6 +184,15 @@ void ui_state_machine() {
 			led_toggle_timeout = millis() + led_blink_ms;
 		}
 	}
+	#if defined(SYS_STATUS_LED_PIN)
+	static ulong sys_led_toggle_timeout = 0;
+	if(sys_led_blink_ms) {
+		if(millis()>sys_led_toggle_timeout) {
+			os.toggle_sys_led();
+			sys_led_toggle_timeout = millis() + sys_led_blink_ms;
+		}
+	}
+	#endif
 #endif
 
 	#if defined(ESP32)
@@ -435,7 +448,7 @@ void do_setup() {
 
 	/* Clear WDT reset flag. */
 #if defined(ESP8266) || defined(ESP32)
-	WiFi.persistent(false);
+	WiFi.persistent(false); // don't preserve WIFI settings, so we can do Wifi.begin()
 	led_blink_ms = LED_FAST_BLINK;
 #else
 	MCUSR &= ~(1<<WDRF);
@@ -614,8 +627,10 @@ void do_loop()
 			dns->start(53, "*", WiFi.softAPIP());
 			os.state = OS_STATE_CONNECTED;
 			connecting_timeout = 0;
+			sys_led_blink_ms = 2000;
 		} else {
 			led_blink_ms = LED_SLOW_BLINK;
+			sys_led_blink_ms = LED_SLOW_BLINK;
 			DEBUG_PRINTLN(F("Setting up WiFi client"));
 			if(os.sopt_load(SOPT_STA_BSSID_CHL).length()>0 && os.wifi_channel<255) {
 				start_network_sta(os.wifi_ssid.c_str(), os.wifi_pass.c_str(), (int32_t)os.wifi_channel, os.wifi_bssid);
@@ -634,6 +649,7 @@ void do_loop()
 
 	case OS_STATE_TRY_CONNECT:
 		led_blink_ms = LED_SLOW_BLINK;
+		sys_led_blink_ms = LED_FAST_BLINK;
 		if(os.sopt_load(SOPT_STA_BSSID_CHL).length()>0 && os.wifi_channel<255) {
 			start_network_sta_with_ap(os.wifi_ssid.c_str(), os.wifi_pass.c_str(), (int32_t)os.wifi_channel, os.wifi_bssid);
 		}
@@ -646,6 +662,7 @@ void do_loop()
 	case OS_STATE_CONNECTING:
 		if(WiFi.status() == WL_CONNECTED) {
 			led_blink_ms = 0;
+			sys_led_blink_ms = LED_SLOW_BLINK;
 			os.set_screen_led(LOW);
 			os.lcd.clear();
 			os.save_wifi_ip();

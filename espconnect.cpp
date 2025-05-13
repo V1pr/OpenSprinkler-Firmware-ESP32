@@ -80,14 +80,18 @@ void start_network_sta(const char *ssid, const char *pass, int32_t channel, cons
 	if(!ssid || !pass) return;
 	if(WiFi.getMode()!=WIFI_STA) WiFi.mode(WIFI_STA);
 #if defined(ESP32)
-	//WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
-	WiFi.setSleep(false);
+	WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
 	#if defined(MDNS_NAME)
 	WiFi.setHostname(MDNS_NAME);
 	#endif
+	WiFi.setSleep(false);
 #endif
 	DEBUG_PRINT(F("Connecting in STA to WiFi network "));
 	DEBUG_PRINTLN(ssid);
+	#if defined(ENABLE_WIFI_ROAMING)
+	WiFi.begin(ssid, pass); // don't bind to channel/bssid, allow roaming!
+	#else
 	WiFi.begin(ssid, pass, channel, bssid);
+	#endif
 }
 #endif

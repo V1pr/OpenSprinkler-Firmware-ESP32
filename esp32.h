@@ -94,12 +94,12 @@
   #define STATION_LOGIC 1 // Zone output logic for relays - 1 => HIGH in ON, 0 => LOW is ON - v1pr board: 1
 
   // Rotary Encoder instead of buttons - not used for now, testing/development
-  #define USE_ROTARY_ENCODER
+  //#define USE_ROTARY_ENCODER
   #define ROTARY_ENCODER_A_PIN 35 // must be interrupt capable PIN!
   #define ROTARY_ENCODER_B_PIN 34
   #define ROTARY_ENCODER_BUTTON_PIN 5 // this should be same, BUTTON_2, default 33
   
-  #define BOOT_MENU_V2
+  //#define BOOT_MENU_V2
 
   #define SEPARATE_MASTER_VALVE 19
 
@@ -110,6 +110,8 @@
   #define IOEXP_SR_LATCH_PIN 32 // ST_CP
 
   #define SYS_STATUS_LED_PIN  13
+
+  #define ENABLE_WIFI_ROAMING // if uncommented, than WiFi.begin() will bind with BSSID + channel!
 
   // this it not nice, should be cleaned up
  	/* Original OS30 pin defines  - native definitions, should not be here
