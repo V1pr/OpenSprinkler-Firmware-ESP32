@@ -420,7 +420,11 @@ void do_setup() {
 	  for( i=0; i<8; i++ ){
 		if(pin_list[i] !=255){
 		  pinMode(pin_list[i], OUTPUT);
-		  digitalWrite(pin_list[i], ~STATION_LOGIC);
+		  if ( STATION_LOGIC == 1 ) {
+		  	digitalWrite(pin_list[i], LOW);
+		  } else if ( STATION_LOGIC == 0 ) {
+			digitalWrite(pin_list[i], HIGH);
+		  }
 		}
 	  }
 
