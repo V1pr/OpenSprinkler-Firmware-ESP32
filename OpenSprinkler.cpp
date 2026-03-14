@@ -608,8 +608,8 @@ unsigned char OpenSprinkler::start_network() {
 	update_server = new ESP8266WebServer(8080);
 	#elif defined(ESP32)
 	//DEBUG_PRINTLN(F("Starting MDNS service"));
-	//MDNS.addService("_http", "_tcp", 8080 );
-	//MDNS.addServiceTxt("_http", "_tcp", "path", "/");
+	MDNS.addService("_http", "_tcp", 8080 );
+	MDNS.addServiceTxt("_http", "_tcp", "path", "/");
 	//      MDNS.addService("_http", "_udp", 80 );
 	update_server = new WebServer(8080);
 	#endif

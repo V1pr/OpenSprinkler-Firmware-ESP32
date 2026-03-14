@@ -84,7 +84,7 @@ void start_network_sta(const char *ssid, const char *pass, int32_t channel, cons
 	#if defined(MDNS_NAME)
 	WiFi.setHostname(MDNS_NAME);
 	#endif
-	WiFi.setSleep(false);
+	WiFi.setSleep(WIFI_PS_NONE);
 #endif
 	DEBUG_PRINT(F("Connecting in STA to WiFi network "));
 	DEBUG_PRINTLN(ssid);
