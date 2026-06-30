@@ -1,3 +1,4 @@
+/* TEST MODE parameters */
 
 #ifndef _TESTMODE_H
 #define _TESTMODE_H
