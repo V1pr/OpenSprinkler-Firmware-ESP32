@@ -36,7 +36,7 @@ typedef unsigned long ulong;
 														// if this number is different from the one stored in non-volatile memory
 														// a device reset will be automatically triggered
 
-#define OS_FW_MINOR      1  // Firmware minor version
+#define OS_FW_MINOR      4  // Firmware minor version
 
 /** Hardware version base numbers */
 #define OS_HW_VERSION_BASE   0x00 // OpenSprinkler
@@ -80,13 +80,27 @@ typedef unsigned long ulong;
 #define NOTIFY_RAINDELAY       0x0080
 #define NOTIFY_STATION_ON      0x0100
 #define NOTIFY_FLOW_ALERT      0x0200
+#define NOTIFY_CURR_ALERT      0x0400
+
+/** Queue Insertion Mode */
+enum {
+	QUEUE_OPTION_APPEND = 0,
+	QUEUE_OPTION_INSERT_FRONT,
+	QUEUE_OPTION_REPLACE
+};
+
+enum {
+	CURR_ALERT_TYPE_UNDER = 0,		// undercurrent when running a station
+	CURR_ALERT_TYPE_OVER_STATION,	// overcurrent when turning on a station
+	CURR_ALERT_TYPE_OVER_SYSTEM		// overcurrent while system is running
+};
 
 /** HTTP request macro defines */
 #define HTTP_RQT_SUCCESS       0
-#define HTTP_RQT_NOT_RECEIVED  1
-#define HTTP_RQT_CONNECT_ERR   2
-#define HTTP_RQT_TIMEOUT       3
-#define HTTP_RQT_EMPTY_RETURN  4
+#define HTTP_RQT_NOT_RECEIVED  -1
+#define HTTP_RQT_CONNECT_ERR   -2
+#define HTTP_RQT_TIMEOUT       -3
+#define HTTP_RQT_EMPTY_RETURN  -4
 
 /** Sensor macro defines */
 #define SENSOR_TYPE_NONE    0x00
@@ -96,7 +110,7 @@ typedef unsigned long ulong;
 #define SENSOR_TYPE_PSWITCH 0xF0  // program switch sensor
 #define SENSOR_TYPE_OTHER   0xFF
 
-#define FLOWCOUNT_RT_WINDOW   30  // flow count window (for computing real-time flow rate), 30 seconds
+#define FLOWCOUNT_RT_WINDOW   1000  // flow count divisor (for computing real-time flow rate)
 
 /** Reboot cause */
 #define REBOOT_CAUSE_NONE   0
@@ -156,6 +170,12 @@ typedef unsigned long ulong;
 #define DEFAULT_OTC_TOKEN_LENGTH   32
 #define DEFAULT_DEVICE_NAME       "My OpenSprinkler"
 #define DEFAULT_EMPTY_STRING      ""
+#define DEFAULT_UNDERCURRENT_THRESHOLD 100 // in mA
+#define DEFAULT_OVERCURRENT_LIMIT 1200 // in mA
+#define OVERCURRENT_INRUSH_EXTRA   600 // in mA, extra margin for inrush
+#define OVERCURRENT_DC_EXTRA      1200 // in mA, extra margin for DC controller
+#define DEFAULT_LATCH_BOOST_VOLTAGE  9 // default latch boost voltage in volt
+#define DEFAULT_TARGET_PD_VOLTAGE   75 // default target voltage (unit: 100mV, so 75 means 7500mV ot 7.5V)
 
 #if (defined(__AVR_ATmega1284P__) || defined(__AVR_ATmega1284__))
 	#define OS_AVR
@@ -169,7 +189,7 @@ typedef unsigned long ulong;
 enum {
 	WEATHER_METHOD_MANUAL = 0,
 	WEATHER_METHOD_ZIMMERMAN,
-	WEATHER_METHOD_AUTORAINDELY,
+	WEATHER_METHOD_AUTORAINDELAY,
 	WEATHER_METHOD_ETO,
 	WEATHER_METHOD_MONTHLY,
 	NUM_WEATHER_METHODS
@@ -263,9 +283,9 @@ enum {
 	IOPT_LATCH_ON_VOLTAGE,
 	IOPT_LATCH_OFF_VOLTAGE,
 	IOPT_NOTIF2_ENABLE,
-	IOPT_RESERVE_4,
-	IOPT_RESERVE_5,
-	IOPT_RESERVE_6,
+	IOPT_I_MIN_THRESHOLD,
+	IOPT_I_MAX_LIMIT,
+	IOPT_TARGET_PD_VOLTAGE,
 	IOPT_RESERVE_7,
 	IOPT_RESERVE_8,
 	IOPT_WIFI_MODE, //ro
@@ -375,6 +395,7 @@ enum {
 	#define EXP_I2CADDR_BASE 0x24 // base of expander I2C address
 	#define LCD_I2CADDR      0x3C // 128x64 OLED display I2C address
 	#define EEPROM_I2CADDR   0x50 // 24C02 EEPROM I2C address
+	#define CH224_I2CADDR    0x22 // CH224A/Q I2C address
 
 	#define PIN_CURR_SENSE    A0    // current sensing pin
 	#define PIN_LATCH_VOLT_SENSE A0 // latch voltage sensing pin
@@ -382,6 +403,7 @@ enum {
 	#define ETHER_BUFFER_SIZE   2048
 
 	#define PIN_ETHER_CS       16 // Ethernet CS (chip select pin) is 16 on OS 3.2 and above
+	#define ETHER_SPI_CLOCK    10000000L // SPI clock for Ethernet (e.g. 10MHz)
 
 	/* To accommodate different OS30 versions, we use software defines pins */
 	extern unsigned char PIN_BUTTON_1;
@@ -446,6 +468,7 @@ enum {
 	#define V2_PIN_LATCH_COMK    IOEXP_PIN+15 // latch COM- (cathode)
 	#define V2_PIN_SENSOR1       3  // sensor 1
 	#define V2_PIN_SENSOR2       10 // sensor 2
+	#define V2_PIN_BOOST_SEL     IOEXP_PIN+8
 
 	#define USE_DISPLAY
 	#define USE_SSD1306
@@ -520,7 +543,12 @@ enum {
 
 #else
 
+	#if defined(ARDUINO)
+	// work-around for PIN_SENSOR1 on OS3.2 and above
+	#define DEBUG_BEGIN(x)   {Serial.begin(115200); Serial.end();}
+	#else
 	#define DEBUG_BEGIN(x)   {}
+	#endif
 	#define DEBUG_PRINT(x)   {}
 	#define DEBUG_PRINTLN(x) {}
 <<<<<<< HEAD

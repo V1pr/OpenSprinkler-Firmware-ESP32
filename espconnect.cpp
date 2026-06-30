@@ -84,7 +84,10 @@ void start_network_sta(const char *ssid, const char *pass, int32_t channel, cons
 	#if defined(MDNS_NAME)
 	WiFi.setHostname(MDNS_NAME);
 	#endif
-	WiFi.setSleep(false);
+	WiFi.setSleep(WIFI_PS_NONE);
+#else
+	WiFi.setSleep(false); // work-around for ARP issue: disable sleep mode
+	WiFi.setOutputPower(20.5);
 #endif
 	DEBUG_PRINT(F("Connecting in STA to WiFi network "));
 	DEBUG_PRINTLN(ssid);
@@ -92,6 +95,7 @@ void start_network_sta(const char *ssid, const char *pass, int32_t channel, cons
 	WiFi.begin(ssid, pass); // don't bind to channel/bssid, allow roaming!
 	#else
 	WiFi.begin(ssid, pass, channel, bssid);
+	WiFi.setAutoReconnect(true); // enable auto reconnect
 	#endif
 }
 #endif
