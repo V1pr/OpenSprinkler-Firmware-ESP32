@@ -1449,7 +1449,9 @@ void OpenSprinkler::setup_pd_voltage() {
 		// the power source does not support PD
 	}
 }
+#endif
 
+#if defined(ESP8266)
 /** LATCH boost voltage
  *
  */
