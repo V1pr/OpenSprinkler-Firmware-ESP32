@@ -18,6 +18,26 @@
 // for testing only - factory reset should do it anyway
 #define ESP32_FORMAT_FS_IF_FAILED true
 
+// ---- Flash / partition layout (uncomment exactly one; must match module flash) ----
+// Drives PlatformIO via pre-build script esp32_partition_setup.py
+#define ESP32_FLASH_4MB
+//#define ESP32_FLASH_8MB
+//#define ESP32_FLASH_32MB
+
+#if defined(ESP32_FLASH_32MB)
+  #define ESP32_FLASH_SIZE_MB 32
+#elif defined(ESP32_FLASH_8MB)
+  #define ESP32_FLASH_SIZE_MB 8
+#else
+  #ifndef ESP32_FLASH_4MB
+    #define ESP32_FLASH_4MB
+  #endif
+  #define ESP32_FLASH_SIZE_MB 4
+#endif
+
+// LittleFS data partition label in the CSV files below (subtype remains spiffs for tooling)
+#define ESP32_FS_PARTITION_LABEL "spiffs"
+
 // chose LCD type: 0.96 probably SSD1306, 1.3" is probably SH1106
 // moved to defines.h
 //#define LCD_SH1106

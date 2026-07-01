@@ -1360,7 +1360,7 @@ pinModeExt(PIN_BUTTON_3, INPUT_PULLUP);
 				} while (pi = (esp_partition_next(pi)));
 			}
 			#endif
-		if(!LittleFS.begin(ESP32_FORMAT_FS_IF_FAILED)) {
+		if(!LittleFS.begin(ESP32_FORMAT_FS_IF_FAILED, "/littlefs", 10, ESP32_FS_PARTITION_LABEL)) {
 		#endif
 
 			// !!! flash init failed, stall as we cannot proceed
