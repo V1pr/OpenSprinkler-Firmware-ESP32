@@ -3839,15 +3839,15 @@ void OpenSprinkler::config_ip() {
 	if(iopts[IOPT_USE_DHCP] == 0) {
 		unsigned char *_ip = iopts+IOPT_STATIC_IP1;
 		IPAddress dvip(_ip[0], _ip[1], _ip[2], _ip[3]);
-		if(dvip==(uint32_t)0x00000000) return;
+		if(dvip == IPAddress()) return;
 
 		_ip = iopts+IOPT_GATEWAY_IP1;
 		IPAddress gwip(_ip[0], _ip[1], _ip[2], _ip[3]);
-		if(gwip==(uint32_t)0x00000000) return;
+		if(gwip == IPAddress()) return;
 
 		_ip = iopts+IOPT_SUBNET_MASK1;
 		IPAddress subn(_ip[0], _ip[1], _ip[2], _ip[3]);
-		if(subn==(uint32_t)0x00000000) return;
+		if(subn == IPAddress()) return;
 
 		_ip = iopts+IOPT_DNS_IP1;
 		IPAddress dnsip(_ip[0], _ip[1], _ip[2], _ip[3]);
