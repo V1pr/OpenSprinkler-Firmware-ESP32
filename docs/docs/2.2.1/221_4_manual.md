@@ -73,7 +73,7 @@ The diagram below shows how to wire valves on the main controller and expanders.
 
 * If you have a master valve or pump start relay, connect it to any zone port — OpenSprinkler uses software-defined master/pump zones, so you can configure which zones act as master.
 
-![Zone Wiring](images/zone_wiring.jpg)
+![Zone Wiring](../assets/images/zone_wiring.jpg)
 
 <hr class="double">
 
@@ -131,31 +131,12 @@ For additional details on specific sensors (rain/soil/flow), refer to [Sensor Se
 #### Step 3: Zone Expanders (Optional)
 
 !!! warning "Power Off Before Wiring Expanders"
-    Always **power off the main controller** before making changes to expanders (connecting, disconnecting, reconfiguring).
+    Always **power off the main controller** before connecting, disconnecting, or reconfiguring an expander.
 
 !!! warning "Verify the Correct Port"
-    Check [Zone Wiring Diagram](#zone-wiring-diagram) to verify it's plugged into the correct port. Do **NOT** plug into the port marked **Ether** (that's for Ethernet module)!
+    Connect the Zone Expander only to the controller port marked **Expander**. Do **NOT** connect it to the port marked **Ether**.
 
-* With the main controller powered off, plug one end of the expander cable into OpenSprinkler’s **Zone Expander** port (keyed; only fits one way).
-
-* **Connect the other end of the cable**:
-    * **OpenSprinkler v3:** to either side of the expander (the two ports are equivalent). For multiple expanders, link them with additional cables.
-    * **OpenSprinkler Pi (OSPi):** to the expander's **IN** port. For multiple expanders, daisy-chain by following the **OUT → IN** links.
-* **Set Index:** ![DIP Switch](images/dip_switch.png){ .img-shadow .img-border style="float: right; margin: 5px 5px 5px 5px;"}
-    * For **OpenSprinkler v3**, you MUST set a unique index (1-4) for each expander, using the DIP switch on its back (see picture on the right).
-        * `1st` expander: index `1` (DIP switch: `DOWN DOWN`)
-        * `2nd` expander: index `2` (`UP DOWN`)
-        * `3rd` expander: index `3` (`DOWN UP`)
-        * `4th` expander: index `4` (`UP UP`).
-    * For **OSPi**: there is no DIP switch - the expander index is implied by the order the expanders are daisy-chained.
-* **Zone Mapping:**
-    * Main controller: zones `1-8`
-    * `1st` expander: zones `9-24`
-    * `2nd` expander: zones `25-40`
-    * `3rd` expander: zones `41-56`
-    * `4th` expander: zones `57-72`
-
-**<u>Select Number of Zones</u>:** The firmware automatically detects the highest expander index, but you still **must manually set the total number of zones** in software settings. You may enable more zones than physically available, to use them as **Virtual Zones** (Remote/HTTP(S)/RF). See [Station Types](#station-cards).
+For compatibility, DIP-switch settings, keyed ribbon-cable orientation, daisy chaining, zone mapping, and software configuration, follow the dedicated [Zone Expander User Manual](../zone-expander.md).
 
 ---
 
@@ -450,7 +431,7 @@ Click Footer Menu → Edit Options (or press `Alt+O`) to configure settings:
 #### System Settings
 
 * **Location:** Tap *Location* to open the map and search for your address; or click the pencil icon ✏️ to manually enter the GPS coordinates.
-    * **PWS location:** When using **WUnderground (WU)** as the weather data provider, you must select a **Personal Weather Station (PWS)** location.
+    * **PWS location:** When using [**Weather Underground (WU)**](../guides/weather-underground.md) as the weather data provider, you must select a **Personal Weather Station (PWS)** location.
         1. First enter and submit a valid **WU API key** in the [Weather and Sensors](#weather-adjustment) tab.
         2. Return to the Location setting - available PWS sites will appear as **blue dots** on the map.
         3. Click one of the blue dots as your PWS location.
@@ -495,7 +476,7 @@ This firmware supports up to **two independent masters**, each configurable as f
 
 * **Adjustment Method:** Select a weather-based adjustment method.
     * **Manual** (default): set **% Watering** manually.
-    * Other methods calculate adjustments automatically. Detailed explanations of supported methods are available on [OpenSprinkler Support](https://openthings.freshdesk.com/support/solutions/articles/5000823370).
+    * Other methods calculate adjustments automatically. Detailed explanations of supported methods are available in [Using Weather Adjustments](../guides/weather-adjustments.md).
 * **Adjustment Method Options:** Configure parameters for the selected method.
 * **Adjust Interval Programs using Multi-Day Average:** This option is available for **Zimmerman or ETo** methods. Enabling it allows **all interval programs** to apply the **average watering level** across the program's interval, rather than just the previous day's. For instance, a program that runs every `4` days uses the 4-day average. For programs that don't run daily, this provides more accurate adjustments that reflect all weather changes since the last run.
     * Applies only if the **Use Weather** flag is enabled for that program.
@@ -509,7 +490,7 @@ This firmware supports up to **two independent masters**, each configurable as f
 
 * **Weather Data Provider:** Choose preferred data provider. Default: **Apple**.
     * If the provider requires an API key, a key input box appears.
-    * Some providers have region limits (e.g. **DWD** = Germany only; **WU** requires PWS location).
+    * Some providers have region limits (e.g. **DWD** = Germany only; [**WU**](../guides/weather-underground.md) requires a PWS location).
 * **% Watering:** Global scaling factor applied to water times. Default: `100%`.
     * Editable only for **Manual** adjustment method (as others calculate this automatically).
     * Example: `75%` → Multiply all station water times by 0.75.
@@ -541,7 +522,7 @@ OpenSprinkler supports **two independent sensors** (`SN1`, `SN2`) with configura
     * `SN2`: Starts `Program 2`
     * Activated if the switch / button is pressed for more than 1 second.
 * **Flow Sensor:** Detect flow pulses to measure **real-time flow rate** and **log total flow volume** at the end of each station run and program cycle.
-    * Support all **dry-contact, 2-wire** flow sensors (recommended). ![Flow Sensor](images/flow_sensor_example.png){ .img-shadow width="150" style="float: right; margin: 5px 5px 5px 5px;"}
+    * Support all **dry-contact, 2-wire** flow sensors (recommended). ![Flow Sensor](../assets/images/flow_sensor_example.png){ .img-shadow width="150" style="float: right; margin: 5px 5px 5px 5px;"}
         * Connect the two wires to **SN1 + GND**.
         * They are essentially reed switches that open and close repeatedly as water flows through the meter. They do not need power and the two wires have no polarity.
     * Also support **3-wire** flow sensors that work with **+5V**.
@@ -557,10 +538,10 @@ OpenSprinkler supports **two independent sensors** (`SN1`, `SN2`) with configura
 
 #### Integration
 
-* **OTC:** Configure **OpenThings Cloud (OTC)** token for remote access. See [**OTC Support Article**](https://openthings.freshdesk.com/support/solutions/articles/5000879535).
-* **MQTT:** Configure MQTT parameters. See [**MQTT Support Article**](https://openthings.freshdesk.com/support/solutions/articles/5000859089).
-* **Email Notifications:** Configure Email settings. See [**Email Notifications Support Article**](https://openthings.freshdesk.com/support/solutions/articles/5000889759).
-* **IFTTT:** Configure IFTTT Webhooks key. See [**IFTTT Support Article**](https://openthings.freshdesk.com/support/solutions/articles/5000716372).
+* **OTC:** Configure **OpenThings Cloud (OTC)** token for remote access. See [**Remote Access with OTC**](../guides/remote-access-otc.md).
+* **MQTT:** Configure MQTT parameters. See [**Using MQTT**](../guides/mqtt.md).
+* **Email Notifications:** Configure Email settings. See [**Setting Up Email Notifications**](../guides/email-notifications.md).
+* **IFTTT:** Configure IFTTT Webhooks key. See [**Setting Up IFTTT Notifications**](../guides/ifttt-notifications.md).
 * **Notification Events:** Select events that trigger MQTT/Email/IFTTT notifications.
 
     !!! warning "Avoid Too Many Events"
@@ -774,7 +755,7 @@ For details on the log data format and example scripts to export logs (e.g. as s
 
 ### Firmware Update
 
-Follow the [firmware update instructions](../index.md#firmware-update).
+Follow the [firmware update instructions](../firmware-update.md).
 
 <hr class="double">
 
@@ -822,4 +803,3 @@ For detailed setup steps and examples, see the [RF Station blog post](https://op
 
 <br>
 <hr class="double">
-

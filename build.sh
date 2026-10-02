@@ -21,39 +21,57 @@ function enable_i2c {
 }
 
 DEBUG=""
+SILENT=false
 
-while getopts ":s:d" opt; do
+function usage {
+	echo "Usage: $0 [-s] [-d] [ospi|demo]"
+}
+
+while getopts ":sd" opt; do
   case $opt in
     s)
 	  SILENT=true
-	  command shift
       ;;
     d)
       DEBUG="-DENABLE_DEBUG -DSERIAL_DEBUG"
-	  command shift
       ;;
+	\?)
+	  usage
+	  exit 2
+	  ;;
   esac
 done
-echo "Building OpenSprinkler..."
+shift $((OPTIND - 1))
 
-#Git update submodules
-
-if git submodule status | grep --quiet '^-'; then
-    echo "A git submodule is not initialized."
-    git submodule update --recursive --init
-else
-    echo "Updating submodules."
-    git submodule update --recursive
+if [ "$#" -gt 1 ]; then
+	usage
+	exit 2
 fi
 
-if [ "$1" == "demo" ]; then
+TARGET="${1:-ospi}"
+case "$TARGET" in
+	demo)
+		VERSION=DEMO
+		;;
+	ospi)
+		VERSION=OSPI
+		;;
+	*)
+		usage
+		exit 2
+		;;
+esac
+
+echo "Building OpenSprinkler..."
+
+# Synchronize URLs and check out the exact revisions pinned by this firmware.
+echo "Updating submodules."
+git submodule sync --recursive
+git submodule update --init --recursive --checkout
+
+if [ "$TARGET" == "demo" ]; then
 	echo "Installing required libraries..."
 	apt-get install -y libmosquitto-dev libssl-dev
-	echo "Compiling demo firmware..."
-
-    ws=$(ls external/TinyWebsockets/tiny_websockets_lib/src/*.cpp)
-    otf=$(ls external/OpenThings-Framework-Firmware-Library/*.cpp)
-    g++ -o OpenSprinkler -DDEMO -DSMTP_OPENSSL $DEBUG -std=c++14 -include string.h -include cstdint main.cpp OpenSprinkler.cpp program.cpp opensprinkler_server.cpp utils.cpp weather.cpp gpio.cpp mqtt.cpp notifier.cpp smtp.c RCSwitch.cpp -Iexternal/TinyWebsockets/tiny_websockets_lib/include $ws -Iexternal/OpenThings-Framework-Firmware-Library/ $otf -lpthread -lmosquitto -lssl -lcrypto
 else
 	echo "Installing required libraries..."
 	apt-get update
@@ -61,16 +79,11 @@ else
 	apt-get install -y libmosquitto-dev libi2c-dev libssl-dev liblgpio-dev
     enable_i2c
 
-	# Switched linker flag from libgpiod to liblgpio
-	GPIOLIB="-llgpio"
-
-	echo "Compiling ospi firmware..."
-
-    ws=$(ls external/TinyWebsockets/tiny_websockets_lib/src/*.cpp)
-    otf=$(ls external/OpenThings-Framework-Firmware-Library/*.cpp)
-    g++ -o OpenSprinkler -DOSPI -DSMTP_OPENSSL $DEBUG -std=c++14 -include string.h -include cstdint main.cpp OpenSprinkler.cpp program.cpp opensprinkler_server.cpp utils.cpp weather.cpp gpio.cpp mqtt.cpp notifier.cpp smtp.c RCSwitch.cpp -Iexternal/TinyWebsockets/tiny_websockets_lib/include $ws -Iexternal/OpenThings-Framework-Firmware-Library/ $otf -lpthread -lmosquitto -lssl -lcrypto -li2c $GPIOLIB
-
 fi
+
+echo "Compiling $TARGET firmware..."
+make clean
+make VERSION="$VERSION" EXTRA_CXXFLAGS="$DEBUG"
 
 if [ -f /etc/init.d/OpenSprinkler.sh ]; then
     echo "Detected the only init.d start up script, removing."

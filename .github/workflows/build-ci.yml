@@ -15,6 +15,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build-pio:
     name: Build PlatformIO
@@ -31,37 +35,49 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.platformio/.cache
-          key: ${{ runner.os }}-pio
-      # - uses: actions/setup-python@v5
-      #   with:
-      #     python-version: '3.13'
-      - name: Install python
-        run: sudo apt-get install python3 python3-pip
+          key: ${{ runner.os }}-pio-6.1.19
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Install PlatformIO Core
-        run: pip install --upgrade platformio
+        run: python -m pip install platformio==6.1.19
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20' # Or any recent LTS version
 
-      - name: Install html-minifier-terser
-        run: npm install html-minifier-terser
+      - name: Install HTML build dependencies
+        run: npm ci
 
       - name: Build PlatformIO Project
-        run: pio run --environment os3x_esp8266
+# Based heavily on the docker build action from immich (https://github.com/immich-app/immich/)
 
-      - name: Move and rename firmware
-        run: mv .pio/build/os3x_esp8266/firmware.bin ./firmware_os_esp8266.bin
+name: Build CI and Release
 
-      - name: Upload firmware
-        uses: actions/upload-artifact@v4
-        with:
-          name: firmware
-          path: ./firmware_os_esp8266.bin
-  
-  build-pio-esp32:
-    name: Build PlatformIO ESP32
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  release:
+    types: [published]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-pio:
+    name: Build PlatformIO
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -75,43 +91,59 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.platformio/.cache
-          key: ${{ runner.os }}-pio
-      # - uses: actions/setup-python@v5
-      #   with:
-      #     python-version: '3.13'
-      - name: Install python
-        run: sudo apt-get install python3 python3-pip
+          key: ${{ runner.os }}-pio-6.1.19
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Install PlatformIO Core
-        run: pip install --upgrade platformio
+        run: python -m pip install platformio==6.1.19
 
-      - name: Build PlatformIO ESP32 Project
-        run: pio run --environment esp32_sprinkler
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Or any recent LTS version
 
-      - name: Move and rename ESP32 firmware
-        run: cp .pio/build/esp32_sprinkler/firmware_merged.bin ./firmware_os_esp32.bin
+      - name: Install HTML build dependencies
+        run: npm ci
 
-#      - name: List firmwares
-#        run: ls -la . && ls -la .pio/build/esp32_sprinkler/ && pwd
+      - name: Build PlatformIO Project
+        run: pio run --environment os3x_esp8266 --environment os4_esp32c6_n8
 
-      - name: Upload ESP32 firmware
+        - name: Collect firmware artifacts
+        run: |
+          cp .pio/build/os3x_esp8266/firmware.bin ./firmware_os_esp8266.bin
+
+      - name: Upload firmware
         uses: actions/upload-artifact@v4
         with:
-          name: firmware_merged.bin
-          path: ./firmware_os_esp32.bin
+          name: firmware
+          path: |
+            ./firmware_os_esp8266.bin
+            ./firmware_os_esp32c6_n8.bin32n8
 
-      - name: Test with Wokwi
-        uses: wokwi/wokwi-ci-action@v1
+  test-api:
+    name: Native and API Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          token: ${{ secrets.WOKWI_CLI_TOKEN }}
-          timeout: 30000
-          path: / # directory with wokwi.toml, relative to repo's root
-          expect_text: 'Factory reset'
-          # expect_text: 'AP started.' # this resulted in API Error: Connection to wss://wokwi.com/api/ws/beta closed unexpectedly: code 1006
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmosquitto-dev libssl-dev
+
+      - name: Run native and API tests
+        run: make test-api
 
   build-demo:
     name: Build Demo
     runs-on: ubuntu-latest
-    if: ${{ needs.build.outputs.stageEnv == 'PROD' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -121,13 +153,9 @@ jobs:
       - name: Build Script
         run: sudo ./build.sh -s demo
 
-      - name: Build Script
-        run: sudo ./build.sh -s demo
-
   build-docker:
     name: Build Docker
     runs-on: ubuntu-latest
-    if: ${{ needs.build.outputs.stageEnv == 'PROD' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -139,12 +167,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - id: lower-repo
-        name: Repository to lowercase
-        run: |
-          REPO=${{ github.event.repository.name }}
-          echo "repository=${REPO@L}" >> $GITHUB_OUTPUT
 
       - id: lower-owner
         name: Owner to lowercase
@@ -170,57 +192,28 @@ jobs:
             echo "cache-to=type=registry,mode=max,ref=ghcr.io/${{ steps.lower-owner.outputs.owner }}/opensprinkler-build-cache:ospi" >> $GITHUB_OUTPUT
           fi
 
-      - name: Generate docker image tags
-        id: metadata
-        uses: docker/metadata-action@v5
-        with:
-          flavor: |
-            latest=auto
-          images: |
-            name=ghcr.io/${{ steps.lower-owner.outputs.owner }}/${{ steps.lower-repo.outputs.repository }}
-          tags: |
-            # Tag with branch name
-            type=ref,event=branch
-            # Tag with pr-number
-            type=ref,event=pr
-            # Tag with git tag on release
-            type=ref,event=tag
-            type=raw,value=release,enable=${{ github.event_name == 'release' }}
-
-      - name: Build and push image
+      - name: Build image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
+          build-args: |
+            BUILD_VERSION=OSPI
           platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm/v7,linux/arm64' }}
           push: false
-          outputs: type=oci,dest=./image.tar
           cache-from: type=registry,ref=ghcr.io/${{ steps.lower-owner.outputs.owner }}/opensprinkler-build-cache:ospi
           cache-to: ${{ steps.cache-target.outputs.cache-to }}
-
-      - name: Upload image
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-image
-          path: ./image.tar
-  release-pio:
-    name: Release PlatformIO
-    runs-on: ubuntu-latest
-    needs: [build-pio, build-docker]
-    if: ${{ github.event_name == 'release' }}
-    steps:
-      - name: Download firmware
-        uses: actions/download-artifact@v4
-        with:
-          name: firmware
-          path: ./firmware
-
   release-docker:
     name: Release Docker
     runs-on: ubuntu-latest
-    needs: [build-pio, build-docker]
-    if: ${{ !github.event.pull_request }}
+    needs: [build-pio, test-api, build-demo, build-docker]
+    if: ${{ github.event_name == 'push' || github.event_name == 'release' }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -265,8 +258,213 @@ jobs:
       - name: Push image
         uses: docker/build-push-action@v6
         with:
+          context: .
+          file: ./Dockerfile
+          build-args: |
+            BUILD_VERSION=OSPI
           platforms: linux/amd64,linux/arm/v7,linux/arm64
-          # Skip pushing when PR from a fork
+          push: true
+          cache-from: type=registry,ref=ghcr.io/${{ steps.lower-owner.outputs.owner }}/opensprinkler-build-cache:ospi
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+
+      - name: Collect firmware artifacts
+        run: |
+          cp .pio/build/os3x_esp8266/firmware.bin ./firmware_os_esp8266.bin
+          cp .pio/build/os4_esp32c6_n8/firmware.bin32n8 ./firmware_os_esp32c6_n8.bin32n8
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: |
+            ./firmware_os_esp8266.bin
+            ./firmware_os_esp32c6_n8.bin32n8
+
+  test-api:
+    name: Native and API Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio-6.1.19
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PlatformIO Core
+        run: python -m pip install platformio==6.1.19
+
+
+      - name: Build PlatformIO ESP32 Project
+        run: pio run --environment esp32_sprinkler
+
+      - name: Move and rename ESP32 firmware
+        run: cp .pio/build/esp32_sprinkler/firmware_merged.bin ./firmware_os_esp32.bin
+
+#      - name: List firmwares
+#        run: ls -la . && ls -la .pio/build/esp32_sprinkler/ && pwd
+
+      - name: Upload ESP32 firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware_merged.bin
+          path: |
+            ./firmware_os_esp32.bin
+            ./firmware_os_esp32c6_n8.bin32n8
+             
+
+      - name: Test with Wokwi
+        uses: wokwi/wokwi-ci-action@v1
+        with:
+          token: ${{ secrets.WOKWI_CLI_TOKEN }}
+          timeout: 30000
+          path: / # directory with wokwi.toml, relative to repo's root
+          expect_text: 'Factory reset'
+          # expect_text: 'AP started.' # this resulted in API Error: Connection to wss://wokwi.com/api/ws/beta closed unexpectedly: code 1006
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmosquitto-dev libssl-dev
+
+      - name: Run native and API tests
+        run: make test-api
+
+  build-demo:
+    name: Build Demo
+    runs-on: ubuntu-latest
+    if: ${{ needs.build.outputs.stageEnv == 'PROD' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build Script
+        run: sudo ./build.sh -s demo
+
+  build-docker:
+    name: Build Docker
+    runs-on: ubuntu-latest
+    if: ${{ needs.build.outputs.stageEnv == 'PROD' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - id: lower-owner
+        name: Owner to lowercase
+        run: |
+          echo "owner=${GITHUB_REPOSITORY_OWNER@L}" >> $GITHUB_OUTPUT
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        # Skip when PR from a fork
+        if: ${{ !github.event.pull_request.head.repo.fork }}
+        with:
+          registry: ghcr.io
+          username: ${{ env.ACT && github.actor || steps.lower-owner.outputs.owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine build cache output
+        id: cache-target
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # Essentially just ignore the cache output (PR can't write to registry cache)
+            echo "cache-to=type=local,dest=/tmp/discard,ignore-error=true" >> $GITHUB_OUTPUT
+          else
+            echo "cache-to=type=registry,mode=max,ref=ghcr.io/${{ steps.lower-owner.outputs.owner }}/opensprinkler-build-cache:ospi" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          build-args: |
+            BUILD_VERSION=OSPI
+          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm/v7,linux/arm64' }}
+          push: false
+          cache-from: type=registry,ref=ghcr.io/${{ steps.lower-owner.outputs.owner }}/opensprinkler-build-cache:ospi
+          cache-to: ${{ steps.cache-target.outputs.cache-to }}
+  release-docker:
+    name: Release Docker
+    runs-on: ubuntu-latest
+    needs: [build-pio, test-api, build-demo, build-docker]
+    if: ${{ github.event_name == 'push' || github.event_name == 'release' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - id: lower-repo
+        name: Repository to lowercase
+        run: |
+          REPO=${{ github.event.repository.name }}
+          echo "repository=${REPO@L}" >> $GITHUB_OUTPUT
+
+      - id: lower-owner
+        name: Owner to lowercase
+        run: |
+          echo "owner=${GITHUB_REPOSITORY_OWNER@L}" >> $GITHUB_OUTPUT
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ env.ACT && github.actor || steps.lower-owner.outputs.owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate docker image tags
+        id: metadata
+        uses: docker/metadata-action@v5
+        with:
+          flavor: |
+            latest=auto
+          images: |
+            name=ghcr.io/${{ steps.lower-owner.outputs.owner }}/${{ steps.lower-repo.outputs.repository }}
+          tags: |
+            # Tag with branch name
+            type=ref,event=branch
+            # Tag with pr-number
+            type=ref,event=pr
+            # Tag with git tag on release
+            type=ref,event=tag
+            type=raw,value=release,enable=${{ github.event_name == 'release' }}
+
+      - name: Push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          build-args: |
+            BUILD_VERSION=OSPI
+          platforms: linux/amd64,linux/arm/v7,linux/arm64
           push: true
           cache-from: type=registry,ref=ghcr.io/${{ steps.lower-owner.outputs.owner }}/opensprinkler-build-cache:ospi
           tags: ${{ steps.metadata.outputs.tags }}

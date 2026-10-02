@@ -13,7 +13,13 @@ OpenSprinkler-Firmware-ESP32.code-workspace
 !updater.sh
 *.bak
 node_modules
+__pycache__/
+*.pyc
 *.json
 !package.json
+!package-lock.json
 .DS_Store
 wokwi.toml
+testmode.h
+.agents/review.md
+tmp/*

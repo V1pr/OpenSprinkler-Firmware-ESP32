@@ -49,11 +49,23 @@ table th,
 table td {
   padding: 6px 10px;
 }
+.rst-content .archive-table + table th,
+.rst-content .archive-table + table td {
+  padding: 10px 16px;
+}
+.rst-content .button-function-table + table th:first-child,
+.rst-content .button-function-table + table td:first-child {
+  width: 1%;
+  white-space: nowrap;
+}
 .rst-content :not(pre) > code {
   border: none;
   background-color: #f4f4f4;
   color: #A04020;
   font-size: 85%;
+}
+.rst-content .hl code {
+  background-color: transparent;
 }
 .center {
   display: block;
@@ -67,8 +79,28 @@ table td {
   margin-right: auto;
   width: 500px;
 }
+.rst-content h4.zone-step-heading {
+  font-size: 110%;
+  letter-spacing: 0;
+}
+/* Danger-style highlighted section-note title (title bar only, no surrounding box) */
+.rst-content .notes-title {
+  background: #d04040;
+  color: #fff;
+  font-weight: bold;
+  padding: 6px 12px;
+  border-radius: 4px;
+}
 ul > li {
   margin-bottom: 0.25em; /* Adjust this value as needed */
+}
+.rst-content table .compact-list {
+  margin: 0.2em 0 0.2em 0.6em;
+  padding-left: 0.25em;
+  line-height: 1.25;
+}
+.rst-content table .compact-list li {
+  margin-bottom: 0;
 }
 .custom-box {
   background-color: #d0ead0;
@@ -81,8 +113,31 @@ ul > li {
   border-radius: 4px;       /* Optional: nice rounded corners */
   padding: 4px;             /* Optional: space between image and border */
 }
+.img-center {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 100%;
+}
+.guide-screenshot {
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+}
 /* You could also make a class for a shadow, which often looks nicer */
 .img-shadow {
   box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
   border-radius: 4px;
+}
+.nav-new-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background-color: #f0d45c;
+  color: #222;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0;
+  vertical-align: 1px;
 }

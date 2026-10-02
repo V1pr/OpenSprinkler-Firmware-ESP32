@@ -20,7 +20,7 @@ RUN echo "deb [signed-by=/usr/share/keyrings/raspberrypi-archive-keyring.gpg] ht
 ## 1st stage compiles OpenSprinkler code
 FROM base AS os-build
 
-ARG BUILD_VERSION="DEMO"
+ARG BUILD_VERSION="OSPI"
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y bash g++ make libmosquittopp-dev libssl-dev libi2c-dev liblgpio-dev
