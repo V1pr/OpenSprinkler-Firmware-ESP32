@@ -20,9 +20,7 @@
  * along with this program.  If not, see
  * <http://www.gnu.org/licenses/>.
  */
-
-#ifndef _DEFINES_H
-#define _DEFINES_H
+#pragma once
 
 //#define ENABLE_DEBUG  // enable serial debug
 #define SERIAL_DEBUG // enable debug for OTF
@@ -468,15 +466,7 @@ enum {
 
 	#define USE_DISPLAY
 	#define USE_SSD1306
-	
-#elif defined(ESP32)
-
-
-	#define USE_DISPLAY
-	//#define USE_SSD1306 // 0.96"
-	#define USE_SH1106 // 1.3"
-	
-	#include "esp32.h"
+	// #define USE_SH1106 // 1.3" OLED display
 
 #elif defined(OSPI) // for OSPi
 
@@ -540,8 +530,6 @@ enum {
 	#define DEBUG_PRINT(x)   {}
 	#define DEBUG_PRINTLN(x) {}
 	#define DEBUG_PRINTF(x, ...)  {}
->>>>>>> 20991dc2a5e072b8f4fae623990412375cda86a8
-
 #endif
 
 /** Re-define arduino-specific (e.g. PGM) types to use standard types */
@@ -586,8 +574,8 @@ enum {
 #define BUTTON_FLAG_UP      0x20  // up flag
 
 // button timing values
-#define BUTTON_DELAY_MS        5  // short delay (milliseconds)
-#define BUTTON_HOLD_MS      1500  // long hold expiration time (milliseconds)
+#define BUTTON_DELAY_MS        1  // short delay (milliseconds)
+#define BUTTON_HOLD_MS      1000  // long hold expiration time (milliseconds)
 
 // button mode values
 #define BUTTON_WAIT_NONE       0  // do not wait, return value immediately

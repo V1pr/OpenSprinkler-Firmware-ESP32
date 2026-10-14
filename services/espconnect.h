@@ -19,11 +19,6 @@
  */
 #pragma once
 
-#if defined(ESP8266) || defined(ESP32)
-
-#ifndef _ESP_CONNECT_H
-#define _ESP_CONNECT_H
-
 #if defined(ESP8266)
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>

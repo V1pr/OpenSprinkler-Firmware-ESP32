@@ -1,21 +1,23 @@
-#ifndef SH1106_DISPLAY_H
-#define SH1106_DISPLAY_H
+#pragma once
 
-#if defined(ESP8266) || defined(ESP32)
+#if defined(ARDUINO)
 
 #include <SH1106.h>
+
 #include "font.h"
 #include "images.h"
 
-#define LCD_STD 0  // Standard LCD
+#define LCD_STD 0 // Standard LCD
 #define LCD_I2C 1
 
 class SH1106Display : public SH1106{
 public:
-	SH1106Display(uint8_t _addr, uint8_t _sda, uint8_t _scl) : SH1106(_addr, _sda, _scl) {
+	SH1106Display(uint8_t _addr, uint8_t _sda, uint8_t _scl) 
+			: SH1106(_addr, _sda, _scl) {
 		cx = 0;
 		cy = 0;
-		for(byte i=0;i<NUM_CUSTOM_ICONS;i++) custom_chars[i]=NULL;
+		for (unsigned char i = 0; i < NUM_CUSTOM_ICONS; i++)
+			custom_chars[i] = NULL;
 	}
 	void begin() {
 		Wire.setClock(400000L); // lower clock to 400kHz
@@ -80,8 +82,5 @@ private:
 };
 
 #endif
-
-#endif // SH1106_DISPLAY_H
-
 
 

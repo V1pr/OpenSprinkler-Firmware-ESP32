@@ -1,0 +1,24 @@
+{
+  "build": {
+    "core": "esp32",
+    "f_cpu": "240000000L",
+    "f_flash": "80000000L",
+    "flash_mode": "qio",
+    "memory_type": "qio_qspi",
+    "psram_type": "qio",
+    "mcu": "esp32c5",
+    "variant": "esp32c5"
+  },
+  "connectivity": ["bluetooth", "wifi"],
+  "frameworks": ["arduino", "espidf"],
+  "name": "ESP32-C5 N16R8 (16 MB Flash, 8 MB Quad PSRAM)",
+  "upload": {
+    "flash_size": "16MB",
+    "maximum_size": 4194304,
+    "maximum_ram_size": 327680,
+    "require_upload_port": true,
+    "speed": 460800
+  },
+  "url": "https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32c5/esp32-c5-devkitc-1/user_guide.html",
+  "vendor": "Custom"
+}

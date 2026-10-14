@@ -149,6 +149,8 @@ const char *FirmwareUpdateService::target() const {
 	return "os3-esp8266";
 #elif defined(ESP32) && defined(OS4_FLASH_N8)
 	return "os4-esp32c6-n8";
+#elif defined(ESP32) && defined(OS4_FLASH_N16)
+	return "os4-esp32c5-n16";
 #else
 	#error "Define an explicit firmware update target for this embedded platform"
 #endif
@@ -159,6 +161,8 @@ const char *FirmwareUpdateService::file_extension() const {
 	return ".bin";
 #elif defined(ESP32) && defined(OS4_FLASH_N8)
 	return ".bin32n8";
+#elif defined(ESP32) && defined(OS4_FLASH_N16)
+	return ".bin32n16";
 #else
 	#error "Define an explicit firmware update file extension for this embedded platform"
 #endif

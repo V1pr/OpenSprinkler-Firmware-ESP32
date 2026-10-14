@@ -471,23 +471,17 @@ unsigned char OpenSprinkler::start_network() {
 #endif //ESP32
 #endif 
 
-#if defined(ESP8266) || defined(ESP32)
-
-	#if defined(ESP32)
-		useEth = false;
-	#else
 	if (start_ether()) {
 		useEth = true;
 		WiFi.mode(WIFI_OFF);
 	} else {
 		useEth = false;
 	}
-	#endif
 
 	DEBUG_PRINT("ETH enabled: ");
 	DEBUG_PRINTLN(useEth);
 	DEBUG_PRINT("Wifi mode: ");
-	DEBUG_PRINTLN(( get_wifi_mode() == WIFI_MODE_STA ) ?  F("STA") : F("AP"));
+	DEBUG_PRINTLN(( get_wifi_mode() == OS_WIFI_MODE_STA ) ?  F("STA") : F("AP"));
 	
 	// FIXME, just for testing
 	//::start_server_ap();
@@ -509,10 +503,15 @@ unsigned char OpenSprinkler::start_network() {
 	if (httpport == FIRMWARE_UPDATE_PORT) {
 		DEBUG_PRINTLN(F("Firmware update server disabled: HTTP port 8080 is reserved"));
 		return 1;
-	}	else {
-		useEth = false;
-		return 0;
 	}
+	
+			#if defined(ESP8266)
+		update_server = new ESP8266WebServer(FIRMWARE_UPDATE_PORT);
+		#else
+		update_server = new WebServer(FIRMWARE_UPDATE_PORT);
+	#endif
+	DEBUG_PRINT(F("Started update server"));
+	return 1;
 
 }
 
@@ -780,8 +779,6 @@ void OpenSprinkler::update_dev() {
 /** Initialize LCD */
 #if defined(USE_DISPLAY)
 void OpenSprinkler::lcd_start() {
-
-#if defined(USE_SSD1306) || defined(USE_SH1106)
 	#if defined(USE_SH1106)
 	DEBUG_PRINTLN("LCD SH1106 init");
 	#else
@@ -857,88 +854,43 @@ void OpenSprinkler::begin() {
 		expanders[i] = NULL;
 	detect_expanders();
 #elif defined(ESP32)
+	osboard::select(osboard::PROFILE_OS_40);
+	// Keep the shared SPI bus idle until external flash support is initialized.
+	pinMode(PIN_FLASH_CS, OUTPUT);
+	digitalWrite(PIN_FLASH_CS, HIGH);
+	Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
+	const osboard::HardwareDetection hardware =
+		osboard::detect_os4_hardware(probe_i2c_address);
+	hw_type = hardware.power_type;
+	osboard::select(hardware.profile);
 
-	//DEBUG_PRINTLN("ESP32");
+	analogReadResolution(12);
+	(void)analogRead(PIN_CURR_SENSE);
+	analogSetPinAttenuation(PIN_CURR_SENSE, ADC_0db);
 
-    hw_type = HW_TYPE_AC;
-    
-	// PIN_RFRX = E0_PIN_RFRX;
-	// PIN_RFTX = E0_PIN_RFTX;
-	// PIN_BOOST = E0_PIN_BOOST;
-	// PIN_BOOST_EN = E0_PIN_BOOST_EN;
-	PIN_SENSOR1 = E0_PIN_SENSOR1;
-	PIN_SENSOR2 = E0_PIN_SENSOR2;
-  	
-	#if defined(ETHPORT)
-		hw_rev = 2;
-	#else
-		hw_rev = 0;
-	#endif
- 	
+	if(detect_i2c(hardware.driver_address)) {
+		drio = new PCA9555(hardware.driver_address);
+	} else {
+		// Keep GPIO wrappers safe on incomplete prototype hardware.
+		drio = new IOEXP(hardware.driver_address);
+	}
+	gpio_set_main_expander(drio);
+	if(drio->type == IOEXP_TYPE_9555) {
+		drio->i2c_write(NXP_CONFIG_REG, osboard::OS40_IO_CONFIG);
+		drio->i2c_write(NXP_OUTPUT_REG, osboard::OS40_IO_OUTPUT);
+	}
+	if (hardware.initialize_usb_pd) usbpd.begin();
+	if (hw_type == HW_TYPE_DC) {
+		pinModeExt(PIN_BOOST, OUTPUT);
+		pinModeExt(PIN_BOOST_EN, OUTPUT);
+		digitalWriteExt(PIN_BOOST, LOW);
+		digitalWriteExt(PIN_BOOST_EN, LOW);
+	}
 
-	  // mainio = new IOEXP(ACDR_I2CADDR); // dont need this as all is handled by ESP32 gpio's
-
-	  DEBUG_PRINTLN("IOEXP Setup");
-
-  #if ! defined(USE_IOEXP_SR) || ( defined(USE_IOEXP_SR) && USE_IOEXP_SR != 1 )
-  	DEBUG_PRINTLN("Using GPIO IOEXP");
-	drio = new BUILD_IN_GPIO(); // to handle gpio's on ESP32 board
-	drio->set_pins_output_mode();
-  #else
-  	DEBUG_PRINTLN(F("Using Shift-register IOEXP"));
-	drio = new IOEXP_SR();
-	DEBUG_PRINTLN(F("Driver class initiated"));
-	drio->set_pins_output_mode();
-	DEBUG_PRINTLN("PIN SETUP COMPLETE");
-  #endif	
-	// ROTARY ENCODER not supported now
-	#if ! defined(USE_ROTARY_ENCODER)
-		PIN_BUTTON_1 = E0_PIN_BUTTON_1;
-		PIN_BUTTON_2 = E0_PIN_BUTTON_2;
-		PIN_BUTTON_3 = E0_PIN_BUTTON_3;
-		
-		pinMode(PIN_BUTTON_1, INPUT_PULLUP);
-		pinMode(PIN_BUTTON_2, INPUT_PULLUP);
-		pinMode(PIN_BUTTON_3, INPUT_PULLUP);
-	#else
-		DEBUG_PRINTLN(F("Rotary encoder enabled"));
-		PIN_BUTTON_1 = ROTARY_ENCODER_A_PIN;
-		PIN_BUTTON_2 = ROTARY_ENCODER_BUTTON_PIN;
-		PIN_BUTTON_3 = ROTARY_ENCODER_B_PIN;
-
-		pinMode(PIN_BUTTON_1, INPUT_PULLUP);
-		pinMode(PIN_BUTTON_2, INPUT_PULLUP);
-		pinMode(PIN_BUTTON_3, INPUT_PULLUP);
-
-		attachInterrupt(digitalPinToInterrupt(ROTARY_ENCODER_A_PIN), OpenSprinkler::handleRotaryEncoderRotate, CHANGE);
-
-	#endif // Button PINs configuration
-
-	/* TODO - interrupt driven button/rotary encoder */
-
-	/* detect expanders */
-	for(byte i=0;i<(MAX_NUM_BOARDS)/2;i++)
-		expanders[i] = NULL;
-	DEBUG_PRINTLN("Starting to detect expanders");
+	for(unsigned char i=0;i<(MAX_NUM_BOARDS)/2;i++) expanders[i] = NULL;
 	detect_expanders();
-	DEBUG_PRINTLN("Expanders detected");
 
 	DEBUG_PRINT("hw_type = "); DEBUG_PRINT(hw_type); DEBUG_PRINT(" hw_rev = "); DEBUG_PRINTLN(hw_rev);
-#else
-
-#if defined(PIN_SR_OE)
-DEBUG_PRINTLN("SR OE Setup");
-// shift register setup
-pinMode(PIN_SR_OE, OUTPUT);
-// pull shift register OE high to disable output
-digitalWrite(PIN_SR_OE, HIGH);
-#endif
-#if defined(PIN_SR_LATCH) && PIN_SR_LATCH != 255
-DEBUG_PRINTLN("SR Latch Setup");
-pinMode(PIN_SR_LATCH, OUTPUT);
-digitalWrite(PIN_SR_LATCH, HIGH);
-
-pinMode(PIN_SR_CLOCK, OUTPUT);
 #endif
 
 #if defined(OSPI)
@@ -1007,13 +959,9 @@ pinMode(PIN_SR_CLOCK, OUTPUT);
 	}
 
 #if defined(ARDUINO)
-	#if defined(PIN_CURR_SENSE) && PIN_CURR_SENSE != 255
-		status.has_curr_sense = 1; // OpenSprinkler v3/v4 have current sensing
-	#else
-		status.has_curr_sense = 0;
-	#endif
-		// measure baseline current
-		baseline_current = 80;
+	status.has_curr_sense = PIN_CURR_SENSE != 255; // OpenSprinkler v3/v4 have current sensing
+	// measure baseline current
+	baseline_current = 80;
 #endif
 
 #if defined(USE_DISPLAY)
@@ -1093,6 +1041,48 @@ pinMode(PIN_SR_CLOCK, OUTPUT);
 	pinModeExt(PIN_BUTTON_2, INPUT_PULLUP);
 	pinModeExt(PIN_BUTTON_3, INPUT_PULLUP);
 
+		  // mainio = new IOEXP(ACDR_I2CADDR); // dont need this as all is handled by ESP32 gpio's
+
+	  DEBUG_PRINTLN("IOEXP Setup");
+
+  #if ! defined(USE_IOEXP_SR) || ( defined(USE_IOEXP_SR) && USE_IOEXP_SR != 1 )
+  	DEBUG_PRINTLN("Using GPIO IOEXP");
+	drio = new BUILD_IN_GPIO(); // to handle gpio's on ESP32 board
+  #else
+  	DEBUG_PRINTLN(F("Using Shift-register IOEXP"));
+	drio = new IOEXP_SR();
+	#if defined(PIN_SR_OE)
+	DEBUG_PRINTLN("SR OE Setup");
+	// shift register setup
+	pinMode(PIN_SR_OE, OUTPUT);
+	// pull shift register OE high to disable output
+	digitalWrite(PIN_SR_OE, HIGH);
+	#endif
+	#if defined(PIN_SR_LATCH) && PIN_SR_LATCH != 255
+	DEBUG_PRINTLN("SR Latch Setup");
+	pinMode(PIN_SR_LATCH, OUTPUT);
+	digitalWrite(PIN_SR_LATCH, HIGH);
+
+	pinMode(PIN_SR_CLOCK, OUTPUT);
+	#endif
+	DEBUG_PRINTLN(F("Driver class initiated"));
+  #endif	
+	// ROTARY ENCODER not supported now
+	#if defined(USE_ROTARY_ENCODER)
+
+		DEBUG_PRINTLN(F("Rotary encoder enabled"));
+		PIN_BUTTON_1 = ROTARY_ENCODER_A_PIN;
+		PIN_BUTTON_2 = ROTARY_ENCODER_BUTTON_PIN;
+		PIN_BUTTON_3 = ROTARY_ENCODER_B_PIN;
+
+		pinMode(PIN_BUTTON_1, INPUT_PULLUP);
+		pinMode(PIN_BUTTON_2, INPUT_PULLUP);
+		pinMode(PIN_BUTTON_3, INPUT_PULLUP);
+
+		attachInterrupt(digitalPinToInterrupt(ROTARY_ENCODER_A_PIN), OpenSprinkler::handleRotaryEncoderRotate, CHANGE);
+
+	#endif // Button PINs configuration
+
 	// detect and check RTC type
 	DEBUG_PRINT(F("Detecting RTC..."));
 	RTC.detect();
@@ -1100,9 +1090,8 @@ pinMode(PIN_SR_CLOCK, OUTPUT);
 
 	#if defined(ESP32)
 		// workaround for OTF, otherwise LocalServer failes
-		start_network_ap(wifi_ssid.c_str(),wifi_pass.c_str());
+		// start_network_ap(wifi_ssid.c_str(),wifi_pass.c_str());
 	#endif
-	
 	
 	#if defined(SYS_STATUS_LED_PIN)
 		pinMode(SYS_STATUS_LED_PIN,OUTPUT);
@@ -1404,7 +1393,7 @@ void OpenSprinkler::apply_all_station_bits(void (*post_activation_callback)()) {
 		 else if(drio->type == IOEXP_TYPE_BUILD_IN_GPIO  || drio->type == IOEXP_TYPE_SR){
 			DEBUG_PRINTLN("ESP32 IOEXP");
 			// stations_bits[0] holds the master station zones as a byte
-			if (STATION_LOGIC) {
+			if (! osboard::active().extra_settings.station_logic) {
 				DEBUG_PRINTLN("HIGH = On station logic");
 				#if defined(SEPARATE_MASTER_VALVE)
 				// DEBUG_PRINT("Separate master on GPIO ");
@@ -3336,10 +3325,10 @@ void OpenSprinkler::lcd_print_screen(char c) {
 		lcd.setCursor(2, 2);
 		if(status.program_busy && !status.pause_state) {
 			//lcd.print(F("Curr: "));
-			#if ! defined(ESP32) || ( defined(ESP32) && PIN_CURR_SENSE != 255 )
-			lcd.print(read_current(true));
-			lcd.print(F(" mA      "));
-			#endif
+			if(PIN_CURR_SENSE != 255) {
+				lcd.print(read_current(true));
+				lcd.print(F(" mA      "));
+			}
 		} else {
 	#else
 		{
@@ -3887,11 +3876,11 @@ void OpenSprinkler::toggle_screen_led() {
 }
 
 void OpenSprinkler::toggle_sys_led() {
-	#if defined(SYS_STATUS_LED_PIN)
-	static byte status = 0;
-	status = 1-status;
-	digitalWrite(SYS_STATUS_LED_PIN,( status ? HIGH : LOW ));
-	#endif
+	if (osboard::active().pins.system_led && osboard::active().pins.system_led != 255) {
+		static byte status = 0;
+		status = 1-status;
+		digitalWrite(osboard::active().pins.system_led, (status ? HIGH : LOW));
+	}
 }
 
 void OpenSprinkler::set_screen_led(unsigned char status) {

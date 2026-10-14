@@ -60,9 +60,7 @@
 	bool useEth = false;
 #endif
 
-#if defined(USE_OTF)
-	OTF::OpenThingsFramework *otf = NULL;
-#endif
+OTF::OpenThingsFramework *otf = NULL;
 
 #if defined(ARDUINO)
 static constexpr uint32_t OTC_BOOT_CONNECTION_DELAY_MS = 25000UL;
@@ -93,9 +91,7 @@ static inline void loop_otf(bool network_available = true) {
 }
 #endif
 
-#if defined(SYS_STATUS_LED_PIN)
-	static uint16_t sys_led_blink_ms = LED_SLOW_BLINK;
-#endif
+static uint16_t sys_led_blink_ms = LED_SLOW_BLINK;
 
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
@@ -214,28 +210,25 @@ void ui_state_machine() {
 	if(millis() - last_usm <= UI_STATE_MACHINE_INTERVAL) { return; }
 	last_usm = millis();
 
-	#if defined(USE_SSD1306) || defined(USE_SH1106) || defined(SYS_STATUS_LED_PIN)
 	// process screen led
 	static uint32_t led_toggle_prev = 0;
 	if(led_blink_ms) {
 		uint32_t tm = millis();
 		if(tm - led_toggle_prev > led_blink_ms) { // overflow proof timeout
-			#if defined(USE_SSD1306) || defined(USE_SH1106)
 			os.toggle_screen_led();
-			#endif
 			os.toggle_sys_led();
 			led_toggle_prev = tm;
 		}
 	}
-	#if defined(SYS_STATUS_LED_PIN)
-	static ulong sys_led_toggle_timeout = 0;
-	if(sys_led_blink_ms) {
-		if(millis()>sys_led_toggle_timeout) {
-			os.toggle_sys_led();
-			sys_led_toggle_timeout = millis() + sys_led_blink_ms;
+	if (osboard::active().pins.system_led) {
+		static ulong sys_led_toggle_timeout = 0;
+		if(sys_led_blink_ms) {
+			if(millis()>sys_led_toggle_timeout) {
+				os.toggle_sys_led();
+				sys_led_toggle_timeout = millis() + sys_led_blink_ms;
+			}
 		}
 	}
-	#endif
 
 
 	if (!os.button_timeout) {
@@ -286,18 +279,14 @@ void ui_state_machine() {
 					os.lcd.setCursor(0, 1);
 					os.lcd_print_pgm(PSTR("(gwip)"));
 					ui_state = UI_STATE_DISP_IP;
-					#if defined(USE_SSD1306) || defined(USE_SH1106)
-						os.lcd.display();
-						os.lcd.setAutoDisplay(true);
-					#endif
+					os.lcd.display();
+					os.lcd.setAutoDisplay(true);
 				} else {  // if no other button is clicked, stop all zones
 					if(!ui_confirm(PSTR("Stop all zones?"))) {ui_state = UI_STATE_DEFAULT; break;}
 					reset_all_stations();
 				}
 			} else {  // clicking B1: display device IP and port
-				#if defined(USE_SSD1306) || defined(USE_SH1106)
-					os.lcd.setAutoDisplay(false);
-				#endif
+				os.lcd.setAutoDisplay(false);
 				os.lcd.clear(0, 1);
 				os.lcd.setCursor(0, 0);
 				#if defined(ESP8266)
@@ -337,10 +326,8 @@ void ui_state_machine() {
 				}
 
 				ui_state = UI_STATE_DISP_IP;
-				#if defined(USE_SSD1306) || defined(USE_SH1106)
-					os.lcd.display();
-					os.lcd.setAutoDisplay(true);
-				#endif
+				os.lcd.display();
+				os.lcd.setAutoDisplay(true);
 			}
 			break;
 		case BUTTON_2:
@@ -430,6 +417,10 @@ void ui_state_machine() {
 #if defined(ARDUINO)
 void do_setup() {
 	
+	/* Clear WDT reset flag. */
+	WiFi.persistent(false);
+	led_blink_ms = LED_FAST_BLINK;
+
 	DEBUG_BEGIN(115200);
 
 	DEBUG_PRINT(F("Build timestamp: "));
@@ -437,17 +428,14 @@ void do_setup() {
 	DEBUG_PRINT(" ");
 	DEBUG_PRINTLN(__TIME__);
 
-	#if defined(ESP32)
-
 	/* Setting internal station pins to prevent unstable behavior on startup */
-	  int i;
-	  unsigned int pin_list[] = ON_BOARD_GPIN_LIST;
-	  for( i=0; i<8; i++ ){
-		if(pin_list[i] !=255){
-		  pinMode(pin_list[i], OUTPUT);
-		  digitalWrite(pin_list[i], !STATION_LOGIC);
+	int i;
+	for( i=0; i<8; i++ ){
+		if(osboard::active().pins.on_board_gpin_list[i] !=255){
+			pinMode(osboard::active().pins.on_board_gpin_list[i], OUTPUT);
+			digitalWrite(osboard::active().pins.on_board_gpin_list[i], ! osboard::active().extra_settings.station_logic);
 		}
-	  }
+	}
 
 	#if defined(USE_IOEXP_SR) && USE_IOEXP_SR == 1
 	  pinMode(IOEXP_SR_LATCH_PIN, OUTPUT);
@@ -459,22 +447,16 @@ void do_setup() {
 	  digitalWrite(IOEXP_SR_DATA_PIN, LOW);
 	#endif
 
-	  #if defined(SEPARATE_MASTER_VALVE)
+	#if defined(SEPARATE_MASTER_VALVE)
 	  DEBUG_PRINT("Enabling separate MASTER valve @ ");
 	  DEBUG_PRINTLN(SEPARATE_MASTER_VALVE);
 	  pinMode(SEPARATE_MASTER_VALVE,OUTPUT);
-	  if ( STATION_LOGIC ) {
+	  if ( ! osboard::active().extra_settings.station_logic ) {
 		digitalWrite(SEPARATE_MASTER_VALVE,LOW);
 	  } else {
 		digitalWrite(SEPARATE_MASTER_VALVE,HIGH);
 	  }
-	  #endif
 	#endif
-
-	/* Clear WDT reset flag. */
-	WiFi.persistent(false);
-	led_blink_ms = LED_FAST_BLINK;
-
 
 	DEBUG_PRINTLN(F("--- Starting setup"));
 	os.begin();          // OpenSprinkler init
@@ -827,12 +809,6 @@ void do_loop()
 	#endif
 
 	// ====== Process Ethernet packets ======
-#if defined(ARDUINO)	// Process Ethernet packets for Arduino
-	static ulong connecting_timeout;
-	//DEBUG_PRINT("OS State: ");
-	//DEBUG_PRINTLN(os.state); OS STate2
-
-	// ====== Process Ethernet packets ======
 	#if defined(ARDUINO)	// Process Ethernet packets for Arduino
 	static uint32_t connecting_timeout;
 	static bool wifi_bssid_attempt_enabled = true;
@@ -861,16 +837,16 @@ void do_loop()
 			dns->start(53, "*", WiFi.softAPIP());
 			os.state = OS_STATE_CONNECTED;
 			connecting_timeout = 0;
-			#if defined(SYS_STATUS_LED_PIN)
-			sys_led_blink_ms = 2000;
-			#endif
+			if (osboard::active().pins.system_led) {
+				sys_led_blink_ms = 2000;
+			}
+			
 		} else {
 			led_blink_ms = LED_SLOW_BLINK;
-			#if defined(SYS_STATUS_LED_PIN)
-			sys_led_blink_ms = LED_SLOW_BLINK;
-			#endif
+			if ( osboard::active().pins.system_led ) {
+				sys_led_blink_ms = LED_SLOW_BLINK;
+			}
 			DEBUG_PRINTLN(F("Setting up WiFi client"));
-			if(os.sopt_load(SOPT_STA_BSSID_CHL).length()>0 && os.wifi_channel<255) {
 			#if defined(ESP32)
 			if(WiFi.getMode()!=WIFI_STA) WiFi.mode(WIFI_STA);
 			os.config_ip();
@@ -898,9 +874,9 @@ void do_loop()
 
 	case OS_STATE_TRY_CONNECT:
 		led_blink_ms = LED_SLOW_BLINK;
-		#if defined(SYS_STATUS_LED_PIN)
-		sys_led_blink_ms = LED_FAST_BLINK;
-		#endif
+		if ( osboard::active().pins.system_led) {
+			sys_led_blink_ms = LED_FAST_BLINK;
+		}
 		#if defined(ESP32)
 		if(WiFi.getMode()!=WIFI_AP_STA) WiFi.mode(WIFI_AP_STA);
 		os.config_ip();
@@ -923,9 +899,9 @@ void do_loop()
 			wifi_bssid_fallback_at = 0;
 			#endif
 			led_blink_ms = 0;
-			#if defined(SYS_STATUS_LED_PIN)
-			sys_led_blink_ms = LED_SLOW_BLINK;
-			#endif
+			if ( osboard::active().pins.system_led ) {
+				sys_led_blink_ms = LED_SLOW_BLINK;
+			}
 			os.set_screen_led(LOW);
 			os.lcd.clear();
 			os.save_wifi_ip();

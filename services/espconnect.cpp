@@ -20,10 +20,7 @@
 #if defined(ARDUINO)
 
 #include "espconnect.h"
-
-#if  defined(ESP32)
-#include "esp32.h"
-#endif
+#include "../boards/board_profile.h"
 
 String scan_network() {
 	WiFi.mode(WIFI_STA);
@@ -67,12 +64,8 @@ void start_network_ap(const char *ssid, const char *pass) {
 	#else
 	WiFi.disconnect();	// disconnect from router
 	#endif
-	if(pass) WiFi.softAP(ssid, pass);
-	else WiFi.softAP(ssid);
-	
-	DEBUG_PRINT(F("Starting AP with SSID "));
-	DEBUG_PRINTLN(ssid);
 
+	if(pass) WiFi.softAP(ssid, pass);
 	else WiFi.softAP(ssid);
 }
 
@@ -85,7 +78,11 @@ void start_network_sta_with_ap(const char *ssid, const char *pass, int32_t chann
 	WiFi.setSleep(false);
 	WiFi.setAutoReconnect(true);
 	#endif
-	WiFi.begin(ssid, pass, channel, bssid);
+	if ( osboard::active().capabilities & osboard::CAP_WIFI_ROAMING ) {
+		WiFi.begin(ssid, pass); // don't bind to channel/bssid, allow roaming!
+	} else {
+		WiFi.begin(ssid, pass, channel, bssid);
+	}
 }
 
 void start_network_sta(const char *ssid, const char *pass, int32_t channel, const unsigned char *bssid) {
@@ -95,24 +92,23 @@ void start_network_sta(const char *ssid, const char *pass, int32_t channel, cons
 	delay(100);
 	#endif
 	if(WiFi.getMode()!=WIFI_STA) WiFi.mode(WIFI_STA);
-#if defined(ESP32)
 	WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
 	#if defined(MDNS_NAME)
 	WiFi.setHostname(MDNS_NAME);
 	#endif
+	#if defined(ESP32)
 	WiFi.setSleep(WIFI_PS_NONE);
-#else
+	#else
 	WiFi.setSleep(false); // work-around for ARP issue: disable sleep mode
-	#if defined(ESP8266)
 	WiFi.setOutputPower(20.5);
-#endif
+	#endif
 	DEBUG_PRINT(F("Connecting in STA to WiFi network "));
 	DEBUG_PRINTLN(ssid);
-	#if defined(ENABLE_WIFI_ROAMING)
-	WiFi.begin(ssid, pass); // don't bind to channel/bssid, allow roaming!
-	#else
-	WiFi.begin(ssid, pass, channel, bssid);
 	WiFi.setAutoReconnect(true); // enable auto reconnect
-	#endif
+	if ( osboard::active().capabilities & osboard::CAP_WIFI_ROAMING ) {
+		WiFi.begin(ssid, pass); // don't bind to channel/bssid, allow roaming!
+	} else {
+		WiFi.begin(ssid, pass, channel, bssid);
+	}
 }
 #endif
