@@ -428,36 +428,6 @@ void do_setup() {
 	DEBUG_PRINT(" ");
 	DEBUG_PRINTLN(__TIME__);
 
-	/* Setting internal station pins to prevent unstable behavior on startup */
-	int i;
-	for( i=0; i<8; i++ ){
-		if(osboard::active().pins.on_board_gpin_list[i] !=255){
-			pinMode(osboard::active().pins.on_board_gpin_list[i], OUTPUT);
-			digitalWrite(osboard::active().pins.on_board_gpin_list[i], ! osboard::active().extra_settings.station_logic);
-		}
-	}
-
-	#if defined(USE_IOEXP_SR) && USE_IOEXP_SR == 1
-	  pinMode(IOEXP_SR_LATCH_PIN, OUTPUT);
-	  digitalWrite(IOEXP_SR_LATCH_PIN, HIGH);
-
-	  pinMode(IOEXP_SR_CLK_PIN, OUTPUT);
-	  digitalWrite(IOEXP_SR_CLK_PIN, HIGH);
-	  pinMode(IOEXP_SR_DATA_PIN,  OUTPUT);
-	  digitalWrite(IOEXP_SR_DATA_PIN, LOW);
-	#endif
-
-	#if defined(SEPARATE_MASTER_VALVE)
-	  DEBUG_PRINT("Enabling separate MASTER valve @ ");
-	  DEBUG_PRINTLN(SEPARATE_MASTER_VALVE);
-	  pinMode(SEPARATE_MASTER_VALVE,OUTPUT);
-	  if ( ! osboard::active().extra_settings.station_logic ) {
-		digitalWrite(SEPARATE_MASTER_VALVE,LOW);
-	  } else {
-		digitalWrite(SEPARATE_MASTER_VALVE,HIGH);
-	  }
-	#endif
-
 	DEBUG_PRINTLN(F("--- Starting setup"));
 	os.begin();          // OpenSprinkler init
 	DEBUG_PRINTLN(F("--- Setting up options"));

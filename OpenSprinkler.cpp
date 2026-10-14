@@ -1041,32 +1041,6 @@ void OpenSprinkler::begin() {
 	pinModeExt(PIN_BUTTON_2, INPUT_PULLUP);
 	pinModeExt(PIN_BUTTON_3, INPUT_PULLUP);
 
-		  // mainio = new IOEXP(ACDR_I2CADDR); // dont need this as all is handled by ESP32 gpio's
-
-	  DEBUG_PRINTLN("IOEXP Setup");
-
-  #if ! defined(USE_IOEXP_SR) || ( defined(USE_IOEXP_SR) && USE_IOEXP_SR != 1 )
-  	DEBUG_PRINTLN("Using GPIO IOEXP");
-	drio = new BUILD_IN_GPIO(); // to handle gpio's on ESP32 board
-  #else
-  	DEBUG_PRINTLN(F("Using Shift-register IOEXP"));
-	drio = new IOEXP_SR();
-	#if defined(PIN_SR_OE)
-	DEBUG_PRINTLN("SR OE Setup");
-	// shift register setup
-	pinMode(PIN_SR_OE, OUTPUT);
-	// pull shift register OE high to disable output
-	digitalWrite(PIN_SR_OE, HIGH);
-	#endif
-	#if defined(PIN_SR_LATCH) && PIN_SR_LATCH != 255
-	DEBUG_PRINTLN("SR Latch Setup");
-	pinMode(PIN_SR_LATCH, OUTPUT);
-	digitalWrite(PIN_SR_LATCH, HIGH);
-
-	pinMode(PIN_SR_CLOCK, OUTPUT);
-	#endif
-	DEBUG_PRINTLN(F("Driver class initiated"));
-  #endif	
 	// ROTARY ENCODER not supported now
 	#if defined(USE_ROTARY_ENCODER)
 
@@ -1389,43 +1363,6 @@ void OpenSprinkler::apply_all_station_bits(void (*post_activation_callback)()) {
 			/* revision 0 uses PCF8574 with active low logic, so all bits must be flipped */
 			drio->i2c_write(NXP_OUTPUT_REG, ~applied_station_bits[0]);
 		}
-		#if defined(ESP32)
-		 else if(drio->type == IOEXP_TYPE_BUILD_IN_GPIO  || drio->type == IOEXP_TYPE_SR){
-			DEBUG_PRINTLN("ESP32 IOEXP");
-			// stations_bits[0] holds the master station zones as a byte
-			if (! osboard::active().extra_settings.station_logic) {
-				DEBUG_PRINTLN("HIGH = On station logic");
-				#if defined(SEPARATE_MASTER_VALVE)
-				// DEBUG_PRINT("Separate master on GPIO ");
-				// DEBUG_PRINTLN(SEPARATE_MASTER_VALVE);
-				// DEBUG_PRINTLN(station_bits[0]);
-				if ( station_bits[0] > 0 ) {
-					DEBUG_PRINTLN("Turning MASTER VALVE On");
-					digitalWrite(SEPARATE_MASTER_VALVE,HIGH);
-				} else {
-					DEBUG_PRINTLN("Turning MASTER VALVE Off");
-					digitalWrite(SEPARATE_MASTER_VALVE,LOW);
-				}
-				#endif
-
-				DEBUG_PRINT("Setting i2c stations... ");
-				drio->i2c_write(255, station_bits[0]);
-				DEBUG_PRINTLN("done");
-			} else {
-				DEBUG_PRINTLN("LOW = On station logic");
-				#if defined(SEPARATE_MASTER_VALVE)
-				if ( station_bits[0] > 0 ) {
-					DEBUG_PRINTLN("Turning MASTER VALVE On");
-					digitalWrite(SEPARATE_MASTER_VALVE,LOW);
-				} else {
-					DEBUG_PRINTLN("Turning MASTER VALVE Off");
-					digitalWrite(SEPARATE_MASTER_VALVE,HIGH);
-				}
-				#endif
-				drio->i2c_write(255,~station_bits[0]);
-			}
-		} 
-		#endif
 
 		DEBUG_PRINT("Main station set, doing expanders");
 

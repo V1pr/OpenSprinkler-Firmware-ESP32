@@ -110,31 +110,4 @@ void PCF8574::i2c_write(uint8_t reg, uint16_t v) {
 	Wire.endTransmission();
 }
 
-#if defined(USE_IOEXP_SR) && USE_IOEXP_SR == 1
-void IOEXP_SR::i2c_write(uint8_t reg, uint16_t v){
-	v = (uint8_t)(v&0xFF) | inputmask;
-  	digitalWrite(IOEXP_SR_LATCH_PIN, LOW);
-	//byte s, sbits;
-	/*
-	for(s=0;s<8;s++) {
-		digitalWrite(IOEXP_SR_CLK_PIN, LOW);
-		digitalWrite(IOEXP_SR_DATA_PIN, (v & ((byte)1<<(7-s))) ? HIGH : LOW );
-	}*/
-	
-	shiftOut(IOEXP_SR_DATA_PIN, IOEXP_SR_CLK_PIN, MSBFIRST, v);
-	digitalWrite(IOEXP_SR_LATCH_PIN, HIGH);
-}
-#endif
-
-#if defined(ON_BOARD_GPIN_LIST)
-void BUILD_IN_GPIO::i2c_write(uint8_t reg, uint16_t v) {
-  v = (uint8_t)(v&0xFF) | inputmask;
-  int i;
-  for (i=0; i<8; i++)
-    if ( osboard::active().pins.on_board_gpin_list[i] != 255){
-      digitalWrite( osboard::active().pins.on_board_gpin_list[i], ((v)>>(i)) & 1);
-    }
-}
-#endif
-
 #endif

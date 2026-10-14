@@ -36,23 +36,17 @@ struct BoardPins {
 	uint8_t latch_common_anode;
 	uint8_t latch_common_cathode;
 	uint8_t io_expander_interrupt;
-	uint8_t on_board_gpin_list[8]; // list of gpins for BUILD_IN_GPIO or IOEXP_SR
 	uint8_t system_led;
-};
-
-struct ExtraSettings {
-	uint8_t station_logic; // Zone output logic for relays - 1 => HIGH in ON, 0 => LOW is ON - v1pr board: 1
 };
 
 struct BoardProfile {
 	BoardPins pins;
 	uint8_t sensor_count;
 	uint8_t capabilities;
-	ExtraSettings extra_settings;
 };
 
-static_assert(sizeof(BoardPins) == 28, "BoardPins must remain compact");
-static_assert(sizeof(BoardProfile) == 31, "BoardProfile must remain compact");
+static_assert(sizeof(BoardPins) == 20, "BoardPins must remain compact");
+static_assert(sizeof(BoardProfile) == 22, "BoardProfile must remain compact");
 
 const BoardProfile& active();
 void select(ProfileId id);
