@@ -38,6 +38,8 @@
 #include "routes.h"
 #include "api/commands.h"
 
+#include <cstring>
+
 // External variables defined in main ion file
 extern OTF::OpenThingsFramework *otf;
 #define OTF_PARAMS_DEF const OTF::Request &req,OTF::Response &res
@@ -776,6 +778,15 @@ void server_json_controller(OTF_PARAMS_DEF) {
 void server_home(OTF_PARAMS_DEF)
 {
 	begin_response(res);
+	os.sopt_load(SOPT_JAVASCRIPTURL, tmp_buffer);
+	if (strncmp(tmp_buffer, "/app", 4) == 0) {
+		print_header(OTF_PARAMS, CT_HTML);
+		bfill.emit_p(PSTR("<!DOCTYPE html><html><head><meta charset=utf-8></head><body>"
+			"<script>window.location.replace('/app/ui-bundle.html?ver=$D&ipas=$D');</script>"
+			"</body></html>"),
+			OS_FW_VERSION, os.iopts[IOPT_IGNORE_PASSWORD]);
+		return;
+	}
 	print_header(OTF_PARAMS, CT_HTML);
 	bfill.emit_p(PSTR("<!DOCTYPE html><html><head>$F</head><body><script>"), htmlMobileHeader);
 	// send server variables and javascript packets
@@ -785,6 +796,37 @@ void server_home(OTF_PARAMS_DEF)
 	bfill.emit_p(PSTR("<script src=\"$O/home.js\"></script></body></html>"), SOPT_JAVASCRIPTURL);
 
 	handle_return(HTML_OK);
+}
+
+void server_offline_ui_bundle(OTF_PARAMS_DEF) {
+	os.sopt_load(SOPT_JAVASCRIPTURL, tmp_buffer);
+	if (strncmp(tmp_buffer, "/app", 4) != 0) {
+		print_header(OTF_PARAMS, CT_HTML);
+		begin_response(res);
+		bfill.emit_p(PSTR("<!DOCTYPE html><html><head><meta charset=utf-8>"
+			"<meta name=viewport content=\"width=device-width,initial-scale=1\">"
+			"<title>Offline UI unavailable</title></head><body>"
+			"<h1>Offline UI unavailable</h1>"
+			"<p>The configured JavaScript URL does not start with /app.</p>"
+			"<p>Change the UI source in OpenSprinkler settings and rebuild the firmware "
+			"with the local UI enabled.</p></body></html>"));
+		return;
+	}
+
+#if defined(OFFLINE_UI_BUNDLE_BUILT) && OFFLINE_UI_BUNDLE_BUILT
+	print_header_compressed_html(OTF_PARAMS, offline_ui_html_gz_len);
+	res.writeBodyData((const __FlashStringHelper*)offline_ui_html_gz,
+		offline_ui_html_gz_len);
+#else
+	print_header(OTF_PARAMS, CT_HTML);
+	begin_response(res);
+	bfill.emit_p(PSTR("<!DOCTYPE html><html><head><meta charset=utf-8>"
+		"<meta name=viewport content=\"width=device-width,initial-scale=1\">"
+		"<title>Offline UI unavailable</title></head><body>"
+		"<h1>Offline UI bundle was not built</h1>"
+		"<p>Set DEFAULT_JAVASCRIPT_URL in defines.h to a value starting with /app "
+		"and rebuild the firmware to include the offline UI.</p></body></html>"));
+#endif
 }
 
 /**
@@ -3037,6 +3079,7 @@ void start_server_client() {
 	if(!callback_initialized) {
 		otf->on("/", server_home);  // handle home page
 		otf->on("/index.html", server_home);
+		otf->on("/app/ui-bundle.html", server_offline_ui_bundle);
 		otf->on("/update", on_firmware_update, OTF::HTTP_GET); // handle firmware update
 		register_api_routes(*otf);
 		callback_initialized = true;
@@ -3055,6 +3098,7 @@ void start_server_ap() {
 	start_network_ap(ap_ssid.c_str(), NULL);
 	delay(500);
 	otf->on("/", on_ap_home);
+	otf->on("/app/ui-bundle.html", server_offline_ui_bundle);
 	otf->on("/jsap", on_ap_scan);
 	otf->on("/ccap", on_ap_change_config);
 	otf->on("/jtap", on_ap_try_connect);
@@ -3082,6 +3126,7 @@ void initialize_otf() {
 	if(!callback_initialized) {
 		otf->on("/", server_home);  // handle home page
 		otf->on("/index.html", server_home);
+		otf->on("/app/ui-bundle.html", server_offline_ui_bundle);
 
 		register_api_routes(*otf);
 		callback_initialized = true;

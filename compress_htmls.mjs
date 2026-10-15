@@ -89,6 +89,9 @@ const size_t ${ident}_len = ${gz.length};
     items.push({ path: keyPath, ident, lenIdent: `${ident}_len` });
   }
 
+  const offlineUiIncluded = items.some(item => item.path === "/offline_ui.html");
+  headerBody += `\n#define OFFLINE_UI_BUNDLE_BUILT ${offlineUiIncluded ? 1 : 0}\n`;
+
   // output asset
   /*headerBody += `\nstatic const GzAsset HTML_ASSETS[] PROGMEM = {\n`;
   for (const it of items) {

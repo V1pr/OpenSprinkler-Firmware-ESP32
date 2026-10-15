@@ -702,3 +702,5 @@ const uint8_t update_html_gz[] PROGMEM = {
 };
 const size_t update_html_gz_len = 8339;
 
+
+#define OFFLINE_UI_BUNDLE_BUILT 0

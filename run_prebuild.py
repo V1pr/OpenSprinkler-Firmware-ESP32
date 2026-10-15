@@ -1,10 +1,69 @@
-# Run node compress_htmls.mjs as a prebuild step
+# Bundle the pinned web UI and compress all HTML assets before building firmware.
 import subprocess
 import os
+import sys
 import shutil
 
 # Import the PlatformIO environment
 Import("env")
+
+print("--- Fetching and bundling pinned OpenSprinkler UI ---")
+
+rebuild_app = False
+definitions = env.get("CPPDEFINES", [])
+if isinstance(definitions, str):
+    definitions = [definitions]
+
+for definition in definitions:
+    if isinstance(definition, str):
+        name, separator, value = definition.partition("=")
+    elif isinstance(definition, (tuple, list)) and definition:
+        name = str(definition[0])
+        separator = "=" if len(definition) > 1 else ""
+        value = str(definition[1]) if len(definition) > 1 else ""
+    else:
+        continue
+
+    if name == "REBUILD_APP":
+        rebuild_app = not separator or value.lower() not in ("0", "false", "no", "")
+        break
+
+if rebuild_app:
+    print("REBUILD_APP is enabled; fetching the latest UI commit from GitHub.")
+
+bundle_command = [sys.executable, os.path.join(".", "tools", "fetch_ui_bundle.py")]
+if rebuild_app:
+    bundle_command.append("--rebuild")
+
+try:
+    result = subprocess.run(
+        bundle_command,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    if result.stdout:
+        print(result.stdout)
+    if result.stderr:
+        print("Error output from UI bundler:")
+        print(result.stderr)
+
+    print("--- OpenSprinkler UI bundle generated successfully ---")
+
+except FileNotFoundError:
+    print("Error: PlatformIO's Python interpreter could not be started.")
+    env.Exit(1)
+
+except subprocess.CalledProcessError as e:
+    print("Error executing the OpenSprinkler UI bundler.")
+    print(f"Return code: {e.returncode}")
+    print("Output (stdout):")
+    print(e.stdout)
+    print("Error output (stderr):")
+    print(e.stderr)
+    print("--- Build HALTED due to UI bundle failure ---")
+    env.Exit(1)
 
 print("--- Running pre-build HTML minifier script ---")
 

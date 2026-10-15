@@ -13,6 +13,7 @@ OpenSprinkler-Firmware-ESP32.code-workspace
 !updater.sh
 *.bak
 node_modules
+html/offline_ui.html
 __pycache__/
 *.pyc
 *.json
